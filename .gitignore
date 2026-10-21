@@ -1,0 +1,29 @@
+
+# Python environment and caches
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Local datasets - do not upload all images
+data/raw/
+data/prepared/
+
+# Local training artifacts
+outputs/
+saved_models/
+*.pth
+*.pt
+*.ckpt
+
+# Local secrets and environment settings
+.env
+.env.*
+!.env.example
+.streamlit/secrets.toml
+
+# Editor and operating-system files
+.vscode/
+.DS_Store
+Thumbs.db
