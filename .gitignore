@@ -5,47 +5,28 @@ venv/
 __pycache__/
 *.py[cod]
 .pytest_cache/
+*.cache
 
-# Secrets
+# Secrets and environment settings
 .env
 .env.*
-.txt
-.jpg
 !.env.example
 .streamlit/secrets.toml
 
-# Dataset cache files
-*.cache
-
-# Large raw datasets
+# Local datasets
 data/raw/
+data/prepared/
 
 # Generated outputs
 outputs/
 
+# Trained model artifacts
+saved_models/
+*.pth
+*.pt
+*.ckpt
 
-# Dataset files
-data/raw/
-data/prepared/
-
-# Generated output files
-outputs/
-
-# Python cache and virtual environments
-.venv/
-venv/
-__pycache__/
-*.py[cod]
-*.cache
-.pytest_cache/
-
-# Secrets
-.env
-.env.*
-!.env.example
-.streamlit/secrets.toml
-
-
-data/raw/
-data/prepared/
-outputs/
+# Editor and operating-system files
+.vscode/
+.DS_Store
+Thumbs.db
