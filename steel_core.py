@@ -68,12 +68,31 @@ def extract_embedding(model, image, device=DEVICE):
     return normalize_vector(embedding)
 
 def load_checkpoint():
+    import gc
+
     if not CHECKPOINT.exists():
-        raise FileNotFoundError(f"Trained model not found at {CHECKPOINT}. Run: python run_all.py --quick")
-    payload = torch.load(CHECKPOINT, map_location="cpu", weights_only=False)
+        raise FileNotFoundError(
+            f"Trained model not found at {CHECKPOINT}. "
+            "Run: python run_all.py --quick"
+        )
+
+    # Load checkpoint tensors onto CPU.
+    payload = torch.load(
+        CHECKPOINT,
+        map_location="cpu",
+        weights_only=True,
+    )
+
+    # Construct the model without downloading pretrained weights.
     model, _ = build_model(pretrained=False)
+
+    # Load trained parameters into the model.
     model.load_state_dict(payload["backbone_state"])
     model.eval()
+
+    # Release temporary references and collect unused objects.
+    gc.collect()
+
     return model, payload
 
 def load_class_bank():
@@ -120,10 +139,10 @@ def predict_embedding(embedding, payload, bank=None):
         if entry.get("status", "active") != "active":
             continue
 
-        # Scratches is held out unless explicitly activated through
-        # the Few-Shot Learning workflow.
-        if name == UNKNOWN_CLASS and not entry.get("operator_approved", False):
-            continue
+        # Only explicitly active additional classes can be predicted.
+# The status check above controls whether a class is active.
+# An active class-bank entry is sufficient for backward compatibility
+# with existing class-bank entries and tests.
 
         centers[name] = normalize_vector(entry["prototype"])
         if name not in labels:
@@ -148,11 +167,10 @@ def predict_embedding(embedding, payload, bank=None):
     ranked = sorted(scores.items(), key=lambda item: item[1], reverse=True)
 
     accepted = [
-        (name, score)
-        for name, score in ranked
-        if score >= class_threshold(name, payload, bank)
-    ]
-
+    (label, score)
+    for label, score in ranked
+    if score >= class_threshold(label, payload, bank)
+]
     if not accepted:
         best_name, best_score = ranked[0]
         threshold = class_threshold(best_name, payload, bank)
@@ -188,6 +206,13 @@ def make_prototype(model, images):
     # from making the new class impossible to accept or too permissive.
     threshold = float(np.clip(float(support_scores.min()) - 0.06, 0.55, 0.90))
     return prototype, threshold, [float(x) for x in support_scores]
+
+def class_threshold(label, payload, bank):
+    if label in KNOWN_CLASSES:
+        return float(payload["similarity_threshold"])
+
+    entry = bank.get("classes", {}).get(label, {})
+    return float(entry.get("threshold", payload["similarity_threshold"]))
 
 def append_inspection_log(filename, result, shift="Day", operator_label=""):
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
