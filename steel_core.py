@@ -67,8 +67,10 @@ def extract_embedding(model, image, device=DEVICE):
         embedding = model(tensor).squeeze(0).cpu().numpy().astype(np.float32)
     return normalize_vector(embedding)
 
+
 def load_checkpoint():
     import gc
+    import torch
 
     if not CHECKPOINT.exists():
         raise FileNotFoundError(
@@ -76,23 +78,20 @@ def load_checkpoint():
             "Run: python run_all.py --quick"
         )
 
-    # Load checkpoint tensors onto CPU.
+    # Load the trusted checkpoint on the CPU.
+    # weights_only=False is needed because this checkpoint
+    # contains NumPy objects in addition to model weights.
     payload = torch.load(
         CHECKPOINT,
         map_location="cpu",
-        weights_only=True,
+        weights_only=False,
     )
 
-    # Construct the model without downloading pretrained weights.
     model, _ = build_model(pretrained=False)
-
-    # Load trained parameters into the model.
     model.load_state_dict(payload["backbone_state"])
     model.eval()
 
-    # Release temporary references and collect unused objects.
     gc.collect()
-
     return model, payload
 
 def load_class_bank():
