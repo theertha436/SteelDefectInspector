@@ -162,10 +162,46 @@ elif page == "Model Evaluation":
             evaluation = metrics.get("evaluation", {})
             report = evaluation.get("classification_report", {})
             macro = report.get("macro avg", {})
+            # Read the actual validation accuracy from the training history.
+            # The training pipeline currently records it as `val_acc`.
+            validation_accuracy = None
+            if history_path.exists():
+                try:
+                    validation_history = pd.read_csv(history_path)
+                    validation_columns = ("val_acc", "validation_accuracy", "val_accuracy", "validation_acc")
+                    validation_column = next(
+                        (name for name in validation_columns if name in validation_history.columns),
+                        None,
+                    )
+                    if validation_column and not validation_history.empty:
+                        values = pd.to_numeric(validation_history[validation_column], errors="coerce").dropna()
+                        if not values.empty:
+                            validation_accuracy = float(values.iloc[-1])
+                            # Handle either fractional (0.987) or percentage (98.7) values.
+                            if validation_accuracy > 1.0:
+                                validation_accuracy /= 100.0
+                except (OSError, ValueError, pd.errors.ParserError):
+                    validation_accuracy = None
+
             cols = st.columns(4)
-            cards = [("Overall accuracy", evaluation.get("combined_accuracy"), True), ("Known vs. unknown AUROC", evaluation.get("known_vs_unknown_auroc"), False), ("Macro precision", macro.get("precision"), True), ("Macro recall", macro.get("recall"), True)]
+            cards = [
+                ("Validation accuracy", validation_accuracy, True),
+                ("Known vs. unknown AUROC", evaluation.get("known_vs_unknown_auroc"), False),
+                ("Macro precision", macro.get("precision"), True),
+                ("Macro recall", macro.get("recall"), True),
+            ]
             for col, (label, value, pct) in zip(cols, cards):
-                col.metric(label, f"{value:.2%}" if isinstance(value, (int, float)) and pct else (f"{value:.3f}" if isinstance(value, (int, float)) else "N/A"))
+                if isinstance(value, (int, float)) and pd.notna(value):
+                    display_value = f"{value:.2%}" if pct else f"{value:.3f}"
+                else:
+                    display_value = "N/A"
+                col.metric(label, display_value)
+            if validation_accuracy is None:
+                st.info(
+                    "Validation accuracy is not available because outputs/training_history.csv "
+                    "does not contain a recognized validation-accuracy column. "
+                    "Run the training pipeline to generate it."
+                )
             st.subheader("Precision–Recall–F1 comparison")
             order = list(metrics.get("class_names", []))
             order += [label for label in evaluation.get("labels", []) if label not in order]
